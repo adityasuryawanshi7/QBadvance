@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Bank - Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        :root {
+            --primary: #3B82F6;
+            --primary-hover: #2563EB;
+            --background: #1E1E1E;
+            --card-bg: #2A2A2A;
+            --text: #FFFFFF;
+            --border: #444444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .login-container {
+            background: var(--card-bg);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .login-options {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+        }
+
+        .login-option {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .login-option.active {
+            border-bottom: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .login-panel {
+            margin-top: 1rem;
+        }
+
+        .error-message {
+            color: #FF5252;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            display: none;
+        }
+
+        .success-message {
+            color: #4CAF50;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1 class="login-title">Question Bank Login</h1>
+        
+        <div class="login-options">
+            <div class="login-option active" id="newCodeOption" onclick="switchLoginOption('new')">Set New Code</div>
+            <div class="login-option" id="existingCodeOption" onclick="switchLoginOption('existing')">Use Existing Code</div>
+        </div>
+        
+        <div class="login-panel" id="newCodePanel">
+            <form class="login-form" id="newCodeForm">
+                <div class="form-group">
+                    <label for="newLoginCode">Set New Login Code</label>
+                    <input type="text" id="newLoginCode" placeholder="Enter a unique code" required>
+                </div>
+                <button type="submit" class="btn">Create Code</button>
+                <div class="error-message" id="newCodeError"></div>
+                <div class="success-message" id="newCodeSuccess"></div>
+            </form>
+        </div>
+        
+        <div class="login-panel" id="existingCodePanel" style="display: none;">
+            <form class="login-form" id="existingCodeForm">
+                <div class="form-group">
+                    <label for="existingLoginCode">Enter Your Login Code</label>
+                    <input type="text" id="existingLoginCode" placeholder="Enter your existing code" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+                <div class="error-message" id="existingCodeError"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Check if user is already logged in
+        window.onload = function() {
+            const loginCode = localStorage.getItem('loginCode');
+            if (loginCode) {
+                // User is already logged in, redirect to main page
+                window.location.href = 'index.html';
+            }
+        };
+
+        // Switch between login options
+        function switchLoginOption(option) {
+            const newCodeOption = document.getElementById('newCodeOption');
+            const existingCodeOption = document.getElementById('existingCodeOption');
+            const newCodePanel = document.getElementById('newCodePanel');
+            const existingCodePanel = document.getElementById('existingCodePanel');
+            
+            if (option === 'new') {
+                newCodeOption.classList.add('active');
+                existingCodeOption.classList.remove('active');
+                newCodePanel.style.display = 'block';
+                existingCodePanel.style.display = 'none';
+            } else {
+                newCodeOption.classList.remove('active');
+                existingCodeOption.classList.add('active');
+                newCodePanel.style.display = 'none';
+                existingCodePanel.style.display = 'block';
+            }
+        }
+
+        // Handle new code form submission
+        document.getElementById('newCodeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const newCodeInput = document.getElementById('newLoginCode');
+            const errorElement = document.getElementById('newCodeError');
+            const successElement = document.getElementById('newCodeSuccess');
+            
+            const newCode = newCodeInput.value.trim();
+            
+            if (newCode.length < 4) {
+                errorElement.textContent = 'Login code must be at least 4 characters long';
+                errorElement.style.display = 'block';
+                successElement.style.display = 'none';
+                return;
+            }
+            
+            // Check if code already exists in the system
+            const request = indexedDB.open('LoginCodes', 1);
+            
+            request.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('codes')) {
+                    db.createObjectStore('codes', { keyPath: 'code' });
+                }
+            };
+            
+            request.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction(['codes'], 'readwrite');
+                const store = transaction.objectStore('codes');
+                
+                const getRequest = store.get(newCode);
+                
+                getRequest.onsuccess = function() {
+                    if (getRequest.result) {
+                        // Code already exists
+                        errorElement.textContent = 'This code is already in use. Please choose another.';
+                        errorElement.style.display = 'block';
+                        successElement.style.display = 'none';
+                    } else {
+                        // Code is available, save it
+                        const addRequest = store.add({ code: newCode, created: new Date().toISOString() });
+                        
+                        addRequest.onsuccess = function() {
+                            // Save login code to localStorage
+                            localStorage.setItem('loginCode', newCode);
+                            
+                            // Show success message
+                            errorElement.style.display = 'none';
+                            successElement.textContent = 'Login code created successfully!';
+                            successElement.style.display = 'block';
+                            
+                            // Redirect to main page after a short delay
+                            setTimeout(function() {
+                                window.location.href = 'index.html';
+                            }, 1500);
+                        };
+                        
+                        addRequest.onerror = function() {
+                            errorElement.textContent = 'Error creating login code. Please try again.';
+                            errorElement.style.display = 'block';
+                            successElement.style.display = 'none';
+                        };
+                    }
+                };
+            };
+            
+            request.onerror = function() {
+                errorElement.textContent = 'Database error. Please try again.';
+                errorElement.style.display = 'block';
+                successElement.style.display = 'none';
+            };
+        });
+
+        // Handle existing code form submission
+        document.getElementById('existingCodeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const existingCodeInput = document.getElementById('existingLoginCode');
+            const errorElement = document.getElementById('existingCodeError');
+            
+            const existingCode = existingCodeInput.value.trim();
+            
+            if (existingCode.length < 1) {
+                errorElement.textContent = 'Please enter your login code';
+                errorElement.style.display = 'block';
+                return;
+            }
+            
+            // Check if code exists in the system
+            const request = indexedDB.open('LoginCodes', 1);
+            
+            request.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction(['codes'], 'readonly');
+                const store = transaction.objectStore('codes');
+                
+                const getRequest = store.get(existingCode);
+                
+                getRequest.onsuccess = function() {
+                    if (getRequest.result) {
+                        // Code exists, login successful
+                        localStorage.setItem('loginCode', existingCode);
+                        
+                        // Import data from the cloud if available
+                        importDataFromCloud(existingCode);
+                        
+                        // Redirect to main page
+                        window.location.href = 'index.html';
+                    } else {
+                        // Code doesn't exist
+                        errorElement.textContent = 'Invalid login code. Please try again.';
+                        errorElement.style.display = 'block';
+                    }
+                };
+            };
+        });
+
+        // Function to import data from cloud storage
+        function importDataFromCloud(loginCode) {
+            // This would typically involve an API call to a server
+            // For this example, we'll simulate it using localStorage
+            const cloudData = localStorage.getItem(`cloudData_${loginCode}`);
+            
+            if (cloudData) {
+                try {
+                    const parsedData = JSON.parse(cloudData);
+                    localStorage.setItem('importPendingData', JSON.stringify(parsedData));
+                } catch (error) {
+                    console.error('Error parsing cloud data:', error);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
