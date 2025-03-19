@@ -72,6 +72,7 @@
             background: rgba(255, 255, 255, 0.1);
             color: var(--text);
             font-size: 1rem;
+            -webkit-appearance: none;
         }
 
         .form-group input:focus {
@@ -89,12 +90,17 @@
             font-weight: 500;
             transition: all 0.2s;
             font-size: 1rem;
-            -webkit-appearance: none; /* Fix for iOS */
+            -webkit-appearance: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .btn:hover {
             background: var(--primary-hover);
-            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
         }
 
         .login-options {
@@ -110,6 +116,8 @@
             cursor: pointer;
             border-bottom: 2px solid transparent;
             transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .login-option.active {
@@ -172,6 +180,15 @@
     </div>
 
     <script>
+        // Check if database is supported
+        let useLocalStorageFallback = false;
+        
+        // Check if IndexedDB is supported
+        if (!window.indexedDB) {
+            console.log("IndexedDB not supported, using localStorage fallback");
+            useLocalStorageFallback = true;
+        }
+
         // Check if user is already logged in
         window.onload = function() {
             const loginCode = localStorage.getItem('loginCode');
@@ -179,50 +196,7 @@
                 // User is already logged in, redirect to main page
                 window.location.href = 'index.html';
             }
-            
-            // Initialize database
-            initializeDatabase();
         };
-        
-        // Initialize IndexedDB
-        function initializeDatabase() {
-            return new Promise((resolve, reject) => {
-                let request;
-                try {
-                    request = indexedDB.open('LoginCodes', 1);
-                } catch (error) {
-                    console.error('Error opening IndexedDB:', error);
-                    displayError('newCodeError', 'Database not supported in your browser. Please try another browser.');
-                    displayError('existingCodeError', 'Database not supported in your browser. Please try another browser.');
-                    reject(error);
-                    return;
-                }
-                
-                request.onupgradeneeded = function(event) {
-                    try {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains('codes')) {
-                            db.createObjectStore('codes', { keyPath: 'code' });
-                        }
-                    } catch (error) {
-                        console.error('Error during database upgrade:', error);
-                        reject(error);
-                    }
-                };
-                
-                request.onsuccess = function(event) {
-                    console.log('IndexedDB initialized successfully');
-                    resolve(event.target.result);
-                };
-                
-                request.onerror = function(event) {
-                    console.error('IndexedDB initialization error:', event.target.error);
-                    displayError('newCodeError', 'Database error. Please try again or use another browser.');
-                    displayError('existingCodeError', 'Database error. Please try again or use another browser.');
-                    reject(event.target.error);
-                };
-            });
-        }
         
         // Helper function to display error messages
         function displayError(elementId, message) {
@@ -256,12 +230,42 @@
                 existingCodePanel.style.display = 'block';
             }
         }
+        
+        // LocalStorage fallback methods
+        function storeCodeInLocalStorage(code) {
+            // Get existing codes or create empty array
+            let existingCodes = [];
+            const storedCodes = localStorage.getItem('loginCodes');
+            if (storedCodes) {
+                existingCodes = JSON.parse(storedCodes);
+            }
+            
+            // Check if code already exists
+            if (existingCodes.includes(code)) {
+                return false; // Code already exists
+            }
+            
+            // Add new code
+            existingCodes.push(code);
+            localStorage.setItem('loginCodes', JSON.stringify(existingCodes));
+            return true; // Success
+        }
+        
+        function checkCodeInLocalStorage(code) {
+            const storedCodes = localStorage.getItem('loginCodes');
+            if (!storedCodes) {
+                return false;
+            }
+            
+            const existingCodes = JSON.parse(storedCodes);
+            return existingCodes.includes(code);
+        }
 
         // Handle new code form submission
         document.getElementById('newCodeForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // Disable button to prevent multiple clicks
+            // Disable button to prevent multiple submissions
             const createButton = document.getElementById('createCodeBtn');
             createButton.disabled = true;
             createButton.textContent = 'Creating...';
@@ -272,7 +276,7 @@
             
             const newCode = newCodeInput.value.trim();
             
-            // Hide any previous messages
+            // Hide previous messages
             hideError('newCodeError');
             successElement.style.display = 'none';
             
@@ -283,17 +287,90 @@
                 return;
             }
             
-            // Check if code already exists in the system
+            // Using localStorage fallback
+            if (useLocalStorageFallback) {
+                const success = storeCodeInLocalStorage(newCode);
+                
+                if (success) {
+                    // Save login code to localStorage
+                    localStorage.setItem('loginCode', newCode);
+                    
+                    // Show success message
+                    successElement.textContent = 'Login code created successfully!';
+                    successElement.style.display = 'block';
+                    
+                    // Redirect to main page after a short delay
+                    setTimeout(function() {
+                        window.location.href = 'index.html';
+                    }, 1500);
+                } else {
+                    displayError('newCodeError', 'This code is already in use. Please choose another.');
+                    createButton.disabled = false;
+                    createButton.textContent = 'Create Code';
+                }
+                return;
+            }
+            
+            // Using IndexedDB
             try {
                 const request = indexedDB.open('LoginCodes', 1);
+                
+                request.onupgradeneeded = function(event) {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('codes')) {
+                        db.createObjectStore('codes', { keyPath: 'code' });
+                    }
+                };
+                
+                request.onerror = function(event) {
+                    console.error('Database error:', event.target.error);
+                    // Fall back to localStorage if IndexedDB fails
+                    useLocalStorageFallback = true;
+                    const success = storeCodeInLocalStorage(newCode);
+                    
+                    if (success) {
+                        localStorage.setItem('loginCode', newCode);
+                        successElement.textContent = 'Login code created successfully!';
+                        successElement.style.display = 'block';
+                        setTimeout(function() {
+                            window.location.href = 'index.html';
+                        }, 1500);
+                    } else {
+                        displayError('newCodeError', 'This code is already in use. Please choose another.');
+                        createButton.disabled = false;
+                        createButton.textContent = 'Create Code';
+                    }
+                };
                 
                 request.onsuccess = function(event) {
                     const db = event.target.result;
                     
                     try {
                         const transaction = db.transaction(['codes'], 'readwrite');
+                        
+                        transaction.onerror = function(event) {
+                            console.error('Transaction error:', event.target.error);
+                            // Fall back to localStorage
+                            useLocalStorageFallback = true;
+                            const success = storeCodeInLocalStorage(newCode);
+                            
+                            if (success) {
+                                localStorage.setItem('loginCode', newCode);
+                                successElement.textContent = 'Login code created successfully!';
+                                successElement.style.display = 'block';
+                                setTimeout(function() {
+                                    window.location.href = 'index.html';
+                                }, 1500);
+                            } else {
+                                displayError('newCodeError', 'This code is already in use. Please choose another.');
+                                createButton.disabled = false;
+                                createButton.textContent = 'Create Code';
+                            }
+                        };
+                        
                         const store = transaction.objectStore('codes');
                         
+                        // Check if code exists
                         const getRequest = store.get(newCode);
                         
                         getRequest.onsuccess = function() {
@@ -304,63 +381,101 @@
                                 createButton.textContent = 'Create Code';
                             } else {
                                 // Code is available, save it
-                                try {
-                                    const addRequest = store.add({ code: newCode, created: new Date().toISOString() });
+                                const addRequest = store.add({ code: newCode, created: new Date().toISOString() });
+                                
+                                addRequest.onsuccess = function() {
+                                    // Save login code to localStorage
+                                    localStorage.setItem('loginCode', newCode);
                                     
-                                    addRequest.onsuccess = function() {
-                                        // Save login code to localStorage
+                                    // Show success message
+                                    successElement.textContent = 'Login code created successfully!';
+                                    successElement.style.display = 'block';
+                                    
+                                    // Redirect to main page after a short delay
+                                    setTimeout(function() {
+                                        window.location.href = 'index.html';
+                                    }, 1500);
+                                };
+                                
+                                addRequest.onerror = function(event) {
+                                    console.error('Error adding code:', event.target.error);
+                                    // Fall back to localStorage
+                                    useLocalStorageFallback = true;
+                                    const success = storeCodeInLocalStorage(newCode);
+                                    
+                                    if (success) {
                                         localStorage.setItem('loginCode', newCode);
-                                        
-                                        // Show success message
                                         successElement.textContent = 'Login code created successfully!';
                                         successElement.style.display = 'block';
-                                        
-                                        // Redirect to main page after a short delay
                                         setTimeout(function() {
                                             window.location.href = 'index.html';
                                         }, 1500);
-                                    };
-                                    
-                                    addRequest.onerror = function(event) {
-                                        console.error('Error adding code:', event.target.error);
-                                        displayError('newCodeError', 'Error creating login code. Please try again.');
+                                    } else {
+                                        displayError('newCodeError', 'This code is already in use. Please choose another.');
                                         createButton.disabled = false;
                                         createButton.textContent = 'Create Code';
-                                    };
-                                } catch (error) {
-                                    console.error('Error in add request:', error);
-                                    displayError('newCodeError', 'Error creating login code. Please try again.');
-                                    createButton.disabled = false;
-                                    createButton.textContent = 'Create Code';
-                                }
+                                    }
+                                };
                             }
                         };
                         
                         getRequest.onerror = function(event) {
                             console.error('Error getting code:', event.target.error);
-                            displayError('newCodeError', 'Error checking code availability. Please try again.');
-                            createButton.disabled = false;
-                            createButton.textContent = 'Create Code';
+                            // Fall back to localStorage
+                            useLocalStorageFallback = true;
+                            const success = storeCodeInLocalStorage(newCode);
+                            
+                            if (success) {
+                                localStorage.setItem('loginCode', newCode);
+                                successElement.textContent = 'Login code created successfully!';
+                                successElement.style.display = 'block';
+                                setTimeout(function() {
+                                    window.location.href = 'index.html';
+                                }, 1500);
+                            } else {
+                                displayError('newCodeError', 'This code is already in use. Please choose another.');
+                                createButton.disabled = false;
+                                createButton.textContent = 'Create Code';
+                            }
                         };
                     } catch (error) {
-                        console.error('Error creating transaction:', error);
-                        displayError('newCodeError', 'Database transaction error. Please try again.');
-                        createButton.disabled = false;
-                        createButton.textContent = 'Create Code';
+                        console.error('Error in transaction:', error);
+                        // Fall back to localStorage
+                        useLocalStorageFallback = true;
+                        const success = storeCodeInLocalStorage(newCode);
+                        
+                        if (success) {
+                            localStorage.setItem('loginCode', newCode);
+                            successElement.textContent = 'Login code created successfully!';
+                            successElement.style.display = 'block';
+                            setTimeout(function() {
+                                window.location.href = 'index.html';
+                            }, 1500);
+                        } else {
+                            displayError('newCodeError', 'This code is already in use. Please choose another.');
+                            createButton.disabled = false;
+                            createButton.textContent = 'Create Code';
+                        }
                     }
                 };
+            } catch (error) {
+                console.error('Error with IndexedDB:', error);
+                // Fall back to localStorage
+                useLocalStorageFallback = true;
+                const success = storeCodeInLocalStorage(newCode);
                 
-                request.onerror = function(event) {
-                    console.error('Database open error:', event.target.error);
-                    displayError('newCodeError', 'Database error. Please try again.');
+                if (success) {
+                    localStorage.setItem('loginCode', newCode);
+                    successElement.textContent = 'Login code created successfully!';
+                    successElement.style.display = 'block';
+                    setTimeout(function() {
+                        window.location.href = 'index.html';
+                    }, 1500);
+                } else {
+                    displayError('newCodeError', 'This code is already in use. Please choose another.');
                     createButton.disabled = false;
                     createButton.textContent = 'Create Code';
-                };
-            } catch (error) {
-                console.error('Error in IndexedDB operations:', error);
-                displayError('newCodeError', 'An unexpected error occurred. Please try again.');
-                createButton.disabled = false;
-                createButton.textContent = 'Create Code';
+                }
             }
         });
 
@@ -368,7 +483,7 @@
         document.getElementById('existingCodeForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // Disable button to prevent multiple clicks
+            // Disable button to prevent multiple submissions
             const loginButton = document.getElementById('loginBtn');
             loginButton.disabled = true;
             loginButton.textContent = 'Logging in...';
@@ -378,7 +493,7 @@
             
             const existingCode = existingCodeInput.value.trim();
             
-            // Hide any previous messages
+            // Hide any previous error messages
             hideError('existingCodeError');
             
             if (existingCode.length < 1) {
@@ -388,15 +503,79 @@
                 return;
             }
             
-            // Check if code exists in the system
+            // Using localStorage fallback
+            if (useLocalStorageFallback) {
+                const exists = checkCodeInLocalStorage(existingCode);
+                
+                if (exists) {
+                    // Code exists, login successful
+                    localStorage.setItem('loginCode', existingCode);
+                    
+                    // Import data from the cloud if available
+                    importDataFromCloud(existingCode);
+                    
+                    // Redirect to main page
+                    window.location.href = 'index.html';
+                } else {
+                    // Code doesn't exist
+                    displayError('existingCodeError', 'Invalid login code. Please try again.');
+                    loginButton.disabled = false;
+                    loginButton.textContent = 'Login';
+                }
+                return;
+            }
+            
+            // Using IndexedDB
             try {
                 const request = indexedDB.open('LoginCodes', 1);
+                
+                request.onupgradeneeded = function(event) {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('codes')) {
+                        db.createObjectStore('codes', { keyPath: 'code' });
+                    }
+                };
+                
+                request.onerror = function(event) {
+                    console.error('Database error:', event.target.error);
+                    // Fall back to localStorage
+                    useLocalStorageFallback = true;
+                    const exists = checkCodeInLocalStorage(existingCode);
+                    
+                    if (exists) {
+                        localStorage.setItem('loginCode', existingCode);
+                        importDataFromCloud(existingCode);
+                        window.location.href = 'index.html';
+                    } else {
+                        displayError('existingCodeError', 'Invalid login code. Please try again.');
+                        loginButton.disabled = false;
+                        loginButton.textContent = 'Login';
+                    }
+                };
                 
                 request.onsuccess = function(event) {
                     const db = event.target.result;
                     
                     try {
                         const transaction = db.transaction(['codes'], 'readonly');
+                        
+                        transaction.onerror = function(event) {
+                            console.error('Transaction error:', event.target.error);
+                            // Fall back to localStorage
+                            useLocalStorageFallback = true;
+                            const exists = checkCodeInLocalStorage(existingCode);
+                            
+                            if (exists) {
+                                localStorage.setItem('loginCode', existingCode);
+                                importDataFromCloud(existingCode);
+                                window.location.href = 'index.html';
+                            } else {
+                                displayError('existingCodeError', 'Invalid login code. Please try again.');
+                                loginButton.disabled = false;
+                                loginButton.textContent = 'Login';
+                            }
+                        };
+                        
                         const store = transaction.objectStore('codes');
                         
                         const getRequest = store.get(existingCode);
@@ -421,29 +600,52 @@
                         
                         getRequest.onerror = function(event) {
                             console.error('Error getting code:', event.target.error);
-                            displayError('existingCodeError', 'Error checking login code. Please try again.');
-                            loginButton.disabled = false;
-                            loginButton.textContent = 'Login';
+                            // Fall back to localStorage
+                            useLocalStorageFallback = true;
+                            const exists = checkCodeInLocalStorage(existingCode);
+                            
+                            if (exists) {
+                                localStorage.setItem('loginCode', existingCode);
+                                importDataFromCloud(existingCode);
+                                window.location.href = 'index.html';
+                            } else {
+                                displayError('existingCodeError', 'Invalid login code. Please try again.');
+                                loginButton.disabled = false;
+                                loginButton.textContent = 'Login';
+                            }
                         };
                     } catch (error) {
-                        console.error('Error creating transaction:', error);
-                        displayError('existingCodeError', 'Database transaction error. Please try again.');
-                        loginButton.disabled = false;
-                        loginButton.textContent = 'Login';
+                        console.error('Error in transaction:', error);
+                        // Fall back to localStorage
+                        useLocalStorageFallback = true;
+                        const exists = checkCodeInLocalStorage(existingCode);
+                        
+                        if (exists) {
+                            localStorage.setItem('loginCode', existingCode);
+                            importDataFromCloud(existingCode);
+                            window.location.href = 'index.html';
+                        } else {
+                            displayError('existingCodeError', 'Invalid login code. Please try again.');
+                            loginButton.disabled = false;
+                            loginButton.textContent = 'Login';
+                        }
                     }
                 };
+            } catch (error) {
+                console.error('Error with IndexedDB:', error);
+                // Fall back to localStorage
+                useLocalStorageFallback = true;
+                const exists = checkCodeInLocalStorage(existingCode);
                 
-                request.onerror = function(event) {
-                    console.error('Database open error:', event.target.error);
-                    displayError('existingCodeError', 'Database error. Please try again.');
+                if (exists) {
+                    localStorage.setItem('loginCode', existingCode);
+                    importDataFromCloud(existingCode);
+                    window.location.href = 'index.html';
+                } else {
+                    displayError('existingCodeError', 'Invalid login code. Please try again.');
                     loginButton.disabled = false;
                     loginButton.textContent = 'Login';
-                };
-            } catch (error) {
-                console.error('Error in IndexedDB operations:', error);
-                displayError('existingCodeError', 'An unexpected error occurred. Please try again.');
-                loginButton.disabled = false;
-                loginButton.textContent = 'Login';
+                }
             }
         });
 
