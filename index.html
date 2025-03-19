@@ -603,7 +603,7 @@
             text-align: center;
             display: none;
         }
-       
+        
     </style>
 </head>
 <body>
@@ -2074,278 +2074,30 @@ window.addEventListener("load", checkForUpdates)
             document.getElementById('modalExistingCodeForm').addEventListener('submit', handleModalExistingCodeSubmit);
         });
 
-
         // Function to close login modal
-function closeLoginModal() {
-  document.getElementById("loginModal").style.display = "none"
-}
-
-// Switch between login options in modal
-function switchModalLoginOption(option) {
-  try {
-    const newCodeOption = document.getElementById("modalNewCodeOption")
-    const existingCodeOption = document.getElementById("modalExistingCodeOption")
-    const newCodePanel = document.getElementById("modalNewCodePanel")
-    const existingCodePanel = document.getElementById("modalExistingCodePanel")
-
-    if (option === "new") {
-      newCodeOption.classList.add("active")
-      existingCodeOption.classList.remove("active")
-      newCodePanel.style.display = "block"
-      existingCodePanel.style.display = "none"
-    } else {
-      newCodeOption.classList.remove("active")
-      existingCodeOption.classList.add("active")
-      newCodePanel.style.display = "none"
-      existingCodePanel.style.display = "block"
-    }
-  } catch (error) {
-    console.error("Error in switchModalLoginOption:", error)
-  }
-}
-
-// Initialize IndexedDB for login codes
-function initLoginCodesDB() {
-  return new Promise((resolve, reject) => {
-    try {
-      const request = indexedDB.open("LoginCodes", 1)
-
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result
-        if (!db.objectStoreNames.contains("codes")) {
-          db.createObjectStore("codes", { keyPath: "code" })
-        }
-      }
-
-      request.onsuccess = (event) => {
-        resolve(event.target.result)
-      }
-
-      request.onerror = (event) => {
-        reject(event.target.error)
-      }
-    } catch (error) {
-      console.error("Error in initLoginCodesDB:", error)
-      reject(error)
-    }
-  })
-}
-
-// Dummy functions for saveDataToCloud, showNotification, and importDataFromCloud
-// Replace these with your actual implementations
-function saveDataToCloud(code) {
-  console.log("Saving data to cloud with code:", code)
-  // Your implementation here
-}
-
-function showNotification(message) {
-  console.log("Notification:", message)
-  // Your implementation here
-}
-
-function importDataFromCloud(code) {
-  console.log("Importing data from cloud with code:", code)
-  // Your implementation here
-}
-
-// Handle new code form submission in modal
-function handleModalNewCodeSubmit(e) {
-  e.preventDefault()
-
-  try {
-    const newCodeInput = document.getElementById("modalNewLoginCode")
-    const errorElement = document.getElementById("modalNewCodeError")
-    const successElement = document.getElementById("modalNewCodeSuccess")
-
-    const newCode = newCodeInput.value.trim()
-
-    if (newCode.length < 4) {
-      errorElement.textContent = "Login code must be at least 4 characters long"
-      errorElement.style.display = "block"
-      successElement.style.display = "none"
-      return
-    }
-
-    // Initialize and use IndexedDB
-    initLoginCodesDB()
-      .then((db) => {
-        const transaction = db.transaction(["codes"], "readwrite")
-        const store = transaction.objectStore("codes")
-
-        return new Promise((resolve, reject) => {
-          const getRequest = store.get(newCode)
-
-          getRequest.onsuccess = () => {
-            if (getRequest.result) {
-              // Code already exists
-              reject(new Error("This code is already in use. Please choose another."))
-            } else {
-              // Code is available, save it
-              const addRequest = store.add({ code: newCode, created: new Date().toISOString() })
-
-              addRequest.onsuccess = () => {
-                resolve(newCode)
-              }
-
-              addRequest.onerror = (event) => {
-                reject(event.target.error)
-              }
-            }
-          }
-
-          getRequest.onerror = (event) => {
-            reject(event.target.error)
-          }
-        })
-      })
-      .then((code) => {
-        // Save current data to cloud with the new code
-        saveDataToCloud(code)
-
-        // Update current login code
-        localStorage.setItem("loginCode", code)
-
-        // Show success message
-        errorElement.style.display = "none"
-        successElement.textContent = "Login code created successfully!"
-        successElement.style.display = "block"
-
-        // Close modal after a short delay
-        setTimeout(() => {
-          closeLoginModal()
-          showNotification("Login code updated successfully!")
-        }, 1500)
-      })
-      .catch((error) => {
-        errorElement.textContent = error.message || "Error creating login code. Please try again."
-        errorElement.style.display = "block"
-        successElement.style.display = "none"
-        console.error("Error in modal new code submission:", error)
-      })
-  } catch (error) {
-    console.error("Error in modal form submission:", error)
-  }
-}
-
-// Handle existing code form submission in modal
-function handleModalExistingCodeSubmit(e) {
-  e.preventDefault()
-
-  try {
-    const existingCodeInput = document.getElementById("modalExistingLoginCode")
-    const errorElement = document.getElementById("modalExistingCodeError")
-
-    const existingCode = existingCodeInput.value.trim()
-
-    if (existingCode.length < 1) {
-      errorElement.textContent = "Please enter your login code"
-      errorElement.style.display = "block"
-      return
-    }
-
-    // Initialize and use IndexedDB
-    initLoginCodesDB()
-      .then((db) => {
-        const transaction = db.transaction(["codes"], "readonly")
-        const store = transaction.objectStore("codes")
-
-        return new Promise((resolve, reject) => {
-          const getRequest = store.get(existingCode)
-
-          getRequest.onsuccess = () => {
-            if (getRequest.result) {
-              // Code exists, login successful
-              resolve(existingCode)
-            } else {
-              // Code doesn't exist
-              reject(new Error("Invalid login code. Please try again."))
-            }
-          }
-
-          getRequest.onerror = (event) => {
-            reject(event.target.error)
-          }
-        })
-      })
-      .then((code) => {
-        // Save current data to cloud with the old code before switching
-        const oldCode = localStorage.getItem("loginCode")
-        if (oldCode) {
-          saveDataToCloud(oldCode)
+        function closeLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
         }
 
-        // Update login code
-        localStorage.setItem("loginCode", code)
-
-        // Import data from the cloud
-        importDataFromCloud(code)
-
-        // Close modal
-        closeLoginModal()
-
-        // Show notification
-        showNotification("Login successful! Importing your data...")
-
-        // Reload page after a short delay to apply imported data
-        setTimeout(() => {
-          window.location.reload()
-        }, 1500)
-      })
-      .catch((error) => {
-        errorElement.textContent = error.message || "Error logging in. Please try again."
-        errorElement.style.display = "block"
-        console.error("Error in modal existing code submission:", error)
-      })
-  } catch (error) {
-    console.error("Error in modal form submission:", error)
-  }
-}
-
-// Add this to your DOMContentLoaded event listener
-document.addEventListener("DOMContentLoaded", () => {
-  // Setup login button and modal
-  const loginButton = document.getElementById("loginButton")
-  const loginModal = document.getElementById("loginModal")
-
-  if (loginButton) {
-    loginButton.addEventListener("click", () => {
-      loginModal.style.display = "flex"
-    })
-  }
-
-  // Setup modal forms with both submit event and direct button click handlers
-  const modalNewCodeForm = document.getElementById("modalNewCodeForm")
-  const modalExistingCodeForm = document.getElementById("modalExistingCodeForm")
-  const modalCreateCodeBtn = document.getElementById("modalCreateCodeBtn")
-  const modalLoginBtn = document.getElementById("modalLoginBtn")
-
-  if (modalNewCodeForm) {
-    modalNewCodeForm.addEventListener("submit", handleModalNewCodeSubmit)
-  }
-
-  if (modalExistingCodeForm) {
-    modalExistingCodeForm.addEventListener("submit", handleModalExistingCodeSubmit)
-  }
-
-  // Add direct click handlers for buttons as a fallback
-  if (modalCreateCodeBtn) {
-    modalCreateCodeBtn.addEventListener("click", (e) => {
-      e.preventDefault()
-      handleModalNewCodeSubmit(e)
-    })
-  }
-
-  if (modalLoginBtn) {
-    modalLoginBtn.addEventListener("click", (e) => {
-      e.preventDefault()
-      handleModalExistingCodeSubmit(e)
-    })
-  }
-})
-
-
-
-        
+        // Switch between login options in modal
+        function switchModalLoginOption(option) {
+            const newCodeOption = document.getElementById('modalNewCodeOption');
+            const existingCodeOption = document.getElementById('modalExistingCodeOption');
+            const newCodePanel = document.getElementById('modalNewCodePanel');
+            const existingCodePanel = document.getElementById('modalExistingCodePanel');
+            
+            if (option === 'new') {
+                newCodeOption.classList.add('active');
+                existingCodeOption.classList.remove('active');
+                newCodePanel.style.display = 'block';
+                existingCodePanel.style.display = 'none';
+            } else {
+                newCodeOption.classList.remove('active');
+                existingCodeOption.classList.add('active');
+                newCodePanel.style.display = 'none';
+                existingCodePanel.style.display = 'block';
+            }
+        }
 
         // Handle new code form submission in modal
         function handleModalNewCodeSubmit(e) {
