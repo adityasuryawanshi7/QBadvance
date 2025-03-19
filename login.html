@@ -89,9 +89,6 @@
             font-weight: 500;
             transition: all 0.2s;
             font-size: 1rem;
-            -webkit-appearance: none; /* Fix for iOS */
-            appearance: none;
-            touch-action: manipulation; /* Improves touch handling */
         }
 
         .btn:hover {
@@ -138,22 +135,6 @@
             text-align: center;
             display: none;
         }
-        
-        /* Debug info for mobile testing */
-        #debug-info {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 5px;
-            font-size: 12px;
-            z-index: 9999;
-            max-width: 80%;
-            overflow: auto;
-            display: none;
-        }
-        
     </style>
 </head>
 <body>
@@ -171,7 +152,7 @@
                     <label for="newLoginCode">Set New Login Code</label>
                     <input type="text" id="newLoginCode" placeholder="Enter a unique code" required>
                 </div>
-                <button type="submit" class="btn" id="createCodeBtn">Create Code</button>
+                <button type="submit" class="btn">Create Code</button>
                 <div class="error-message" id="newCodeError"></div>
                 <div class="success-message" id="newCodeSuccess"></div>
             </form>
@@ -183,240 +164,176 @@
                     <label for="existingLoginCode">Enter Your Login Code</label>
                     <input type="text" id="existingLoginCode" placeholder="Enter your existing code" required>
                 </div>
-                <button type="submit" class="btn" id="loginBtn">Login</button>
+                <button type="submit" class="btn">Login</button>
                 <div class="error-message" id="existingCodeError"></div>
             </form>
         </div>
     </div>
-    
-    <!-- Debug info for mobile testing -->
-    <div id="debug-info"></div>
 
     <script>
-        // Debug function for mobile testing
-        function debug(message) {
-            const debugElement = document.getElementById('debug-info');
-            debugElement.style.display = 'block';
-            debugElement.innerHTML += message + '<br>';
-        }
-        
         // Check if user is already logged in
         window.onload = function() {
-            try {
-                const loginCode = localStorage.getItem('loginCode');
-                if (loginCode) {
-                    // User is already logged in, redirect to main page
-                    window.location.href = 'index.html';
-                }
-            } catch (error) {
-                debug('Error in onload: ' + error.message);
+            const loginCode = localStorage.getItem('loginCode');
+            if (loginCode) {
+                // User is already logged in, redirect to main page
+                window.location.href = 'index.html';
             }
         };
 
         // Switch between login options
         function switchLoginOption(option) {
-            try {
-                const newCodeOption = document.getElementById('newCodeOption');
-                const existingCodeOption = document.getElementById('existingCodeOption');
-                const newCodePanel = document.getElementById('newCodePanel');
-                const existingCodePanel = document.getElementById('existingCodePanel');
-                
-                if (option === 'new') {
-                    newCodeOption.classList.add('active');
-                    existingCodeOption.classList.remove('active');
-                    newCodePanel.style.display = 'block';
-                    existingCodePanel.style.display = 'none';
-                } else {
-                    newCodeOption.classList.remove('active');
-                    existingCodeOption.classList.add('active');
-                    newCodePanel.style.display = 'none';
-                    existingCodePanel.style.display = 'block';
-                }
-            } catch (error) {
-                debug('Error in switchLoginOption: ' + error.message);
+            const newCodeOption = document.getElementById('newCodeOption');
+            const existingCodeOption = document.getElementById('existingCodeOption');
+            const newCodePanel = document.getElementById('newCodePanel');
+            const existingCodePanel = document.getElementById('existingCodePanel');
+            
+            if (option === 'new') {
+                newCodeOption.classList.add('active');
+                existingCodeOption.classList.remove('active');
+                newCodePanel.style.display = 'block';
+                existingCodePanel.style.display = 'none';
+            } else {
+                newCodeOption.classList.remove('active');
+                existingCodeOption.classList.add('active');
+                newCodePanel.style.display = 'none';
+                existingCodePanel.style.display = 'block';
             }
-        }
-
-        // Initialize IndexedDB for login codes
-        function initLoginCodesDB() {
-            return new Promise((resolve, reject) => {
-                try {
-                    const request = indexedDB.open('LoginCodes', 1);
-                    
-                    request.onupgradeneeded = function(event) {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains('codes')) {
-                            db.createObjectStore('codes', { keyPath: 'code' });
-                        }
-                    };
-                    
-                    request.onsuccess = function(event) {
-                        resolve(event.target.result);
-                    };
-                    
-                    request.onerror = function(event) {
-                        reject(event.target.error);
-                    };
-                } catch (error) {
-                    debug('Error in initLoginCodesDB: ' + error.message);
-                    reject(error);
-                }
-            });
         }
 
         // Handle new code form submission
         document.getElementById('newCodeForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            try {
-                const newCodeInput = document.getElementById('newLoginCode');
-                const errorElement = document.getElementById('newCodeError');
-                const successElement = document.getElementById('newCodeSuccess');
-                
-                const newCode = newCodeInput.value.trim();
-                
-                if (newCode.length < 4) {
-                    errorElement.textContent = 'Login code must be at least 4 characters long';
-                    errorElement.style.display = 'block';
-                    successElement.style.display = 'none';
-                    return;
+            const newCodeInput = document.getElementById('newLoginCode');
+            const errorElement = document.getElementById('newCodeError');
+            const successElement = document.getElementById('newCodeSuccess');
+            
+            const newCode = newCodeInput.value.trim();
+            
+            if (newCode.length < 4) {
+                errorElement.textContent = 'Login code must be at least 4 characters long';
+                errorElement.style.display = 'block';
+                successElement.style.display = 'none';
+                return;
+            }
+            
+            // Check if code already exists in the system
+            const request = indexedDB.open('LoginCodes', 1);
+            
+            request.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('codes')) {
+                    db.createObjectStore('codes', { keyPath: 'code' });
                 }
+            };
+            
+            request.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction(['codes'], 'readwrite');
+                const store = transaction.objectStore('codes');
                 
-                // Initialize and use IndexedDB
-                initLoginCodesDB()
-                    .then(db => {
-                        const transaction = db.transaction(['codes'], 'readwrite');
-                        const store = transaction.objectStore('codes');
-                        
-                        return new Promise((resolve, reject) => {
-                            const getRequest = store.get(newCode);
-                            
-                            getRequest.onsuccess = function() {
-                                if (getRequest.result) {
-                                    // Code already exists
-                                    reject(new Error('This code is already in use. Please choose another.'));
-                                } else {
-                                    // Code is available, save it
-                                    const addRequest = store.add({ code: newCode, created: new Date().toISOString() });
-                                    
-                                    addRequest.onsuccess = function() {
-                                        resolve(newCode);
-                                    };
-                                    
-                                    addRequest.onerror = function(event) {
-                                        reject(event.target.error);
-                                    };
-                                }
-                            };
-                            
-                            getRequest.onerror = function(event) {
-                                reject(event.target.error);
-                            };
-                        });
-                    })
-                    .then(code => {
-                        // Save login code to localStorage
-                        localStorage.setItem('loginCode', code);
-                        
-                        // Show success message
-                        errorElement.style.display = 'none';
-                        successElement.textContent = 'Login code created successfully!';
-                        successElement.style.display = 'block';
-                        
-                        // Redirect to main page after a short delay
-                        setTimeout(function() {
-                            window.location.href = 'index.html';
-                        }, 1500);
-                    })
-                    .catch(error => {
-                        errorElement.textContent = error.message || 'Error creating login code. Please try again.';
+                const getRequest = store.get(newCode);
+                
+                getRequest.onsuccess = function() {
+                    if (getRequest.result) {
+                        // Code already exists
+                        errorElement.textContent = 'This code is already in use. Please choose another.';
                         errorElement.style.display = 'block';
                         successElement.style.display = 'none';
-                        debug('Error in new code submission: ' + error.message);
-                    });
-            } catch (error) {
-                debug('Error in form submission: ' + error.message);
-            }
+                    } else {
+                        // Code is available, save it
+                        const addRequest = store.add({ code: newCode, created: new Date().toISOString() });
+                        
+                        addRequest.onsuccess = function() {
+                            // Save login code to localStorage
+                            localStorage.setItem('loginCode', newCode);
+                            
+                            // Show success message
+                            errorElement.style.display = 'none';
+                            successElement.textContent = 'Login code created successfully!';
+                            successElement.style.display = 'block';
+                            
+                            // Redirect to main page after a short delay
+                            setTimeout(function() {
+                                window.location.href = 'index.html';
+                            }, 1500);
+                        };
+                        
+                        addRequest.onerror = function() {
+                            errorElement.textContent = 'Error creating login code. Please try again.';
+                            errorElement.style.display = 'block';
+                            successElement.style.display = 'none';
+                        };
+                    }
+                };
+            };
+            
+            request.onerror = function() {
+                errorElement.textContent = 'Database error. Please try again.';
+                errorElement.style.display = 'block';
+                successElement.style.display = 'none';
+            };
         });
 
         // Handle existing code form submission
         document.getElementById('existingCodeForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            try {
-                const existingCodeInput = document.getElementById('existingLoginCode');
-                const errorElement = document.getElementById('existingCodeError');
+            const existingCodeInput = document.getElementById('existingLoginCode');
+            const errorElement = document.getElementById('existingCodeError');
+            
+            const existingCode = existingCodeInput.value.trim();
+            
+            if (existingCode.length < 1) {
+                errorElement.textContent = 'Please enter your login code';
+                errorElement.style.display = 'block';
+                return;
+            }
+            
+            // Check if code exists in the system
+            const request = indexedDB.open('LoginCodes', 1);
+            
+            request.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction(['codes'], 'readonly');
+                const store = transaction.objectStore('codes');
                 
-                const existingCode = existingCodeInput.value.trim();
+                const getRequest = store.get(existingCode);
                 
-                if (existingCode.length < 1) {
-                    errorElement.textContent = 'Please enter your login code';
-                    errorElement.style.display = 'block';
-                    return;
-                }
-                
-                // Initialize and use IndexedDB
-                initLoginCodesDB()
-                    .then(db => {
-                        const transaction = db.transaction(['codes'], 'readonly');
-                        const store = transaction.objectStore('codes');
-                        
-                        return new Promise((resolve, reject) => {
-                            const getRequest = store.get(existingCode);
-                            
-                            getRequest.onsuccess = function() {
-                                if (getRequest.result) {
-                                    // Code exists, login successful
-                                    resolve(existingCode);
-                                } else {
-                                    // Code doesn't exist
-                                    reject(new Error('Invalid login code. Please try again.'));
-                                }
-                            };
-                            
-                            getRequest.onerror = function(event) {
-                                reject(event.target.error);
-                            };
-                        });
-                    })
-                    .then(code => {
-                        // Save login code to localStorage
-                        localStorage.setItem('loginCode', code);
+                getRequest.onsuccess = function() {
+                    if (getRequest.result) {
+                        // Code exists, login successful
+                        localStorage.setItem('loginCode', existingCode);
                         
                         // Import data from the cloud if available
-                        const cloudData = localStorage.getItem(`cloudData_${code}`);
-                        if (cloudData) {
-                            try {
-                                const parsedData = JSON.parse(cloudData);
-                                localStorage.setItem('importPendingData', JSON.stringify(parsedData));
-                            } catch (error) {
-                                debug('Error parsing cloud data: ' + error.message);
-                            }
-                        }
+                        importDataFromCloud(existingCode);
                         
                         // Redirect to main page
                         window.location.href = 'index.html';
-                    })
-                    .catch(error => {
-                        errorElement.textContent = error.message || 'Error logging in. Please try again.';
+                    } else {
+                        // Code doesn't exist
+                        errorElement.textContent = 'Invalid login code. Please try again.';
                         errorElement.style.display = 'block';
-                        debug('Error in existing code submission: ' + error.message);
-                    });
-            } catch (error) {
-                debug('Error in form submission: ' + error.message);
+                    }
+                };
+            };
+        });
+
+        // Function to import data from cloud storage
+        function importDataFromCloud(loginCode) {
+            // This would typically involve an API call to a server
+            // For this example, we'll simulate it using localStorage
+            const cloudData = localStorage.getItem(`cloudData_${loginCode}`);
+            
+            if (cloudData) {
+                try {
+                    const parsedData = JSON.parse(cloudData);
+                    localStorage.setItem('importPendingData', JSON.stringify(parsedData));
+                } catch (error) {
+                    console.error('Error parsing cloud data:', error);
+                }
             }
-        });
-
-        // Add direct click handlers for buttons as a fallback
-        document.getElementById('createCodeBtn').addEventListener('click', function(e) {
-            e.preventDefault();
-            document.getElementById('newCodeForm').dispatchEvent(new Event('submit'));
-        });
-
-        document.getElementById('loginBtn').addEventListener('click', function(e) {
-            e.preventDefault();
-            document.getElementById('existingCodeForm').dispatchEvent(new Event('submit'));
-        });
+        }
     </script>
 </body>
 </html>
